@@ -207,15 +207,13 @@ const ROL_LABELS = {
   'VICEDIRECTORA':'Vicedirectora',
 };
 
-// ── Alumnos (espejo de app.js — en producción leer de GSheets)
-const STUDENTS = [
-  {apellido:'GARCIA',   nombre:'Juan',   curso:'5°1'},
-  {apellido:'RODRIGUEZ',nombre:'María',  curso:'5°1'},
-  {apellido:'LOPEZ',    nombre:'Carlos', curso:'5°1'},
-  {apellido:'MARTINEZ', nombre:'Ana',    curso:'5°2'},
-  {apellido:'GONZALEZ', nombre:'Pedro',  curso:'5°2'},
-  {apellido:'PRUEBA',   nombre:'Usuaria',curso:'Prueba'},
-];
+// ── URL del backend (mismo que app.js)
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKajjYVZ81rb5u1I_mB3C9DHr8uXKQLdVB9dk_LExyZ-6KK3k9ApwPuIP1MvfamMoQ/exec';
+
+// ── Datos de alumnos cargados desde Google Sheets
+let STUDENTS = [];
+let PROGRESS_CACHE = {}; // { 'APELLIDO_curso': progresoObj }
+let dashboardLoaded = false;
 
 // ── Quiz metadata (nombres y totales de preguntas)
 const QUIZZES_META = [
@@ -272,11 +270,8 @@ function logout() {
   window.history.replaceState({}, '', 'docente.html');
 }
 
-// ── Leer progreso del alumno desde localStorage (mismo navegador)
-// En producción: llamar a Apps Script para leer de GSheets
 function getProgress(apellido, curso) {
-  const key = `progress_${apellido}_${curso}`;
-  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+  return PROGRESS_CACHE[apellido + '_' + curso] || null;
 }
 
 function calcStats(prog) {
@@ -306,7 +301,38 @@ function filtrar(filter) {
   return filter==='todos' ? STUDENTS : STUDENTS.filter(s=>s.curso===filter);
 }
 
-function loadDashboard() { renderStats(); renderAlumnosTable(); renderCorrecTable(); renderChart(); }
+async function loadDashboard() {
+  // Mostrar indicador de carga
+  document.getElementById('stats-grid').innerHTML = '<div style="padding:20px;color:#9B7BBB;font-size:14px">⏳ Cargando datos desde Google Sheets...</div>';
+  
+  try {
+    const url = SCRIPT_URL + '?action=getDashboard';
+    const res = await fetch(url);
+    const json = await res.json();
+    
+    if (json.ok && json.students) {
+      // Reconstruir STUDENTS y PROGRESS_CACHE desde la respuesta
+      STUDENTS = [];
+      PROGRESS_CACHE = {};
+      json.students.forEach(s => {
+        STUDENTS.push({ apellido: s.apellido, nombre: s.nombre, curso: s.curso });
+        // Parsear el JSON de progreso guardado en la planilla
+        if (s.progressJson) {
+          try { PROGRESS_CACHE[s.apellido + '_' + s.curso] = JSON.parse(s.progressJson); } catch(e) {}
+        }
+      });
+      dashboardLoaded = true;
+    } else {
+      console.log('Error desde Sheets:', json.error);
+    }
+  } catch(e) {
+    console.log('Error cargando dashboard:', e);
+    document.getElementById('stats-grid').innerHTML = '<div style="padding:20px;color:#922B21;font-size:14px">⚠️ Error al conectar con Google Sheets. Verificá la URL del script.</div>';
+    return;
+  }
+  
+  renderStats(); renderAlumnosTable(); renderCorrecTable(); renderChart();
+}
 
 // ── RESUMEN
 function renderStats(filter='todos') {
