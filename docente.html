@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EconoApp — Panel Docente</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple:#5B2C6F;--purple-mid:#7D3C98;--purple-light:#A569BD;--purple-pale:#E8D5F5;
+    --bordeaux:#6E2C3E;--bordeaux-mid:#922B45;
+    --gold:#C9A84C;--gold-light:#F0D080;--gold-dark:#8A6B20;
+    --cream:#FAF6FD;--cream-mid:#F0E6F8;
+    --text-dark:#2C1654;--text-mid:#5A3A7A;--text-light:#9B7BBB;
+    --green:#1E8449;--green-light:#E8F8EE;--red:#922B21;--red-light:#FDECEA;
+    --shadow:0 4px 24px rgba(91,44,111,0.13);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:#EEE6F8;color:var(--text-dark);min-height:100vh;}
+
+  /* Login */
+  #teacher-login{min-height:100vh;background:linear-gradient(145deg,#3B1460 0%,var(--purple) 45%,var(--bordeaux-mid) 100%);display:flex;align-items:center;justify-content:center;}
+  .tl-card{background:white;border-radius:22px;padding:38px 44px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(40,0,80,0.35);}
+  .tl-card .logo-icon{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--bordeaux-mid));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 14px;}
+  .tl-card h1{font-family:'Playfair Display',serif;font-size:22px;color:var(--purple);text-align:center;margin-bottom:3px;}
+  .tl-card .sub{font-size:12px;color:var(--text-light);text-align:center;margin-bottom:22px;}
+  .tl-card label{font-size:11px;font-weight:700;color:var(--text-mid);letter-spacing:0.8px;text-transform:uppercase;display:block;margin-bottom:5px;margin-top:13px;}
+  .tl-card input,.tl-card select{width:100%;padding:11px 13px;border:1.5px solid var(--purple-pale);border-radius:9px;font-size:14px;font-family:'DM Sans';outline:none;transition:border 0.2s;}
+  .tl-card input:focus,.tl-card select:focus{border-color:var(--purple-mid);}
+  .select-wrap{position:relative;}
+  .select-wrap select{appearance:none;padding-right:32px;}
+  .select-wrap::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--text-light);pointer-events:none;}
+  .btn-tl{width:100%;margin-top:20px;padding:13px;background:linear-gradient(135deg,var(--purple),var(--bordeaux-mid));color:white;border:none;border-radius:9px;font-size:14.5px;font-weight:600;font-family:'DM Sans';cursor:pointer;box-shadow:0 4px 14px rgba(91,44,111,0.3);}
+  #tl-error{color:var(--red);font-size:12px;margin-top:8px;display:none;text-align:center;background:var(--red-light);border-radius:7px;padding:7px 12px;}
+  .tl-back{text-align:center;margin-top:14px;font-size:12px;color:var(--text-light);}
+  .tl-back a{color:var(--purple-light);text-decoration:none;}
+
+  /* Dashboard */
+  #teacher-dash{display:none;}
+  .dash-header{background:linear-gradient(90deg,var(--purple),var(--bordeaux));padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+  .dash-header .logo{font-family:'Playfair Display',serif;font-size:19px;color:var(--gold-light);}
+  .dash-header .rol-badge{font-size:11px;font-weight:600;color:var(--purple);background:var(--gold-light);padding:3px 10px;border-radius:14px;}
+  .dash-header .back-btn{font-size:12px;color:rgba(255,255,255,0.7);cursor:pointer;text-decoration:underline;}
+  .dash-body{padding:26px 28px;max-width:1280px;margin:0 auto;}
+
+  /* Tabs */
+  .tab-row{display:flex;gap:7px;margin-bottom:22px;flex-wrap:wrap;}
+  .tab-btn{padding:9px 20px;border-radius:8px;font-size:13.5px;font-weight:500;font-family:'DM Sans';cursor:pointer;border:1.5px solid var(--purple-pale);background:white;color:var(--text-mid);transition:all 0.15s;}
+  .tab-btn.active{background:var(--purple);color:white;border-color:var(--purple);}
+
+  /* Cards */
+  .card{background:white;border-radius:14px;padding:22px 24px;box-shadow:var(--shadow);margin-bottom:18px;border:1px solid var(--purple-pale);}
+  .card-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--purple);margin-bottom:14px;}
+
+  /* Stats */
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:20px;}
+  .stat-card{background:white;border-radius:11px;padding:16px 18px;border:1px solid var(--purple-pale);}
+  .stat-card .s-label{font-size:10px;color:var(--text-light);font-weight:700;letter-spacing:0.6px;text-transform:uppercase;margin-bottom:7px;}
+  .stat-card .s-value{font-size:30px;font-weight:700;color:var(--purple);}
+  .stat-card .s-sub{font-size:11px;color:var(--text-light);margin-top:3px;}
+
+  /* Table */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;padding:9px 13px;font-size:10px;font-weight:700;color:var(--text-light);letter-spacing:0.8px;text-transform:uppercase;border-bottom:1px solid var(--purple-pale);background:#F8F4FD;white-space:nowrap;}
+  td{padding:11px 13px;border-bottom:1px solid #F4F0FA;color:var(--text-mid);vertical-align:middle;}
+  tr:hover td{background:#FAF6FD;cursor:pointer;}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;}
+  .bg{background:var(--green-light);color:var(--green);}
+  .ba{background:#FFF8E8;color:var(--gold-dark);}
+  .br{background:var(--red-light);color:var(--red);}
+  .bx{background:#F4F0FA;color:var(--text-light);}
+
+  /* Mini bars */
+  .mini-bar{display:flex;align-items:center;gap:7px;}
+  .mini-bar-track{flex:1;height:5px;background:var(--purple-pale);border-radius:3px;overflow:hidden;min-width:50px;}
+  .mini-bar-fill{height:100%;border-radius:3px;}
+
+  /* Curso filter */
+  .curso-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .curso-tab{padding:5px 16px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:2px solid var(--purple-pale);background:white;color:var(--text-mid);}
+  .curso-tab.active{background:var(--purple);color:white;border-color:var(--purple);}
+
+  /* Chart bars */
+  #progress-chart{display:flex;align-items:flex-end;gap:5px;padding-bottom:20px;min-height:180px;overflow-x:auto;}
+
+  /* Detail view */
+  .detail-back{font-size:13px;color:var(--purple-mid);cursor:pointer;background:none;border:none;padding:0;margin-bottom:16px;display:flex;align-items:center;gap:5px;}
+  .detail-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--bordeaux-mid));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:white;flex-shrink:0;}
+  .detail-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .dstat{background:var(--cream-mid);border-radius:10px;padding:13px 15px;text-align:center;border:1px solid var(--purple-pale);}
+  .dstat .dv{font-size:22px;font-weight:700;color:var(--purple);}
+  .dstat .dl{font-size:10px;color:var(--text-light);text-transform:uppercase;letter-spacing:0.6px;}
+
+  /* Answer detail */
+  .quiz-block{margin-bottom:18px;border:1px solid var(--purple-pale);border-radius:10px;overflow:hidden;}
+  .quiz-block-header{padding:10px 14px;background:var(--purple);display:flex;align-items:center;justify-content:space-between;}
+  .quiz-block-header .qbh-name{font-size:13px;font-weight:600;color:white;}
+  .quiz-block-header .qbh-score{font-size:12px;font-weight:700;color:var(--gold-light);}
+  .answer-row{padding:9px 14px;border-bottom:1px solid #F4F0FA;font-size:12.5px;display:flex;align-items:flex-start;gap:8px;}
+  .answer-row:last-child{border-bottom:none;}
+  .ans-icon{flex-shrink:0;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+  .ans-ok{background:var(--green-light);color:var(--green);}
+  .ans-bad{background:var(--red-light);color:var(--red);}
+  .ans-text{flex:1;line-height:1.4;}
+  .ans-q{color:var(--text-dark);font-weight:500;margin-bottom:2px;}
+  .ans-given{color:var(--text-mid);}
+  .ans-correct-lbl{color:var(--green);font-weight:600;}
+  .ans-pending{color:var(--text-light);font-style:italic;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="teacher-login">
+  <div class="tl-card">
+    <img src="data:image/webp;base64,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" alt="Instituto Juana de Ibarbourou" width="70" height="70" style="display:block;margin:0 auto 12px;border-radius:50%;object-fit:contain;background:white;box-shadow:0 3px 14px rgba(110,44,62,0.4);">
+    <h1>Panel Docente</h1>
+    <p class="sub">EconoApp · Micro &amp; Macroeconomía · 5° Año</p>
+    <label>Apellido / Rol</label>
+    <div class="select-wrap">
+      <select id="tl-rol">
+        <option value="">— Seleccioná tu rol —</option>
+        <option value="MONTES DE OCA">Montes de Oca (Profesor)</option>
+        <option value="DIRECTOR">Director</option>
+        <option value="VICEDIRECTORA">Vicedirectora</option>
+      </select>
+    </div>
+    <label>Contraseña</label>
+    <input type="password" id="tl-pass" placeholder="••••••••">
+    <button class="btn-tl" onclick="teacherLogin()">Acceder →</button>
+    <div id="tl-error">Credenciales incorrectas</div>
+    <div class="tl-back"><a href="index.html" style="color:var(--purple-light);font-weight:600;">← Volver al Panel del Alumno</a></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="teacher-dash">
+  <div class="dash-header">
+    <div>
+      <div class="logo">EconoApp — Panel Docente</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5)">Micro &amp; Macroeconomía · 5° Año 2026</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="rol-badge" id="rol-badge">—</span>
+      <span class="back-btn" onclick="logout()">Salir</span>
+    </div>
+  </div>
+
+  <div class="dash-body">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="showTab('resumen')">📊 Resumen</button>
+      <button class="tab-btn" onclick="showTab('alumnos')">👥 Alumnos</button>
+      <button class="tab-btn" onclick="showTab('correcciones')">✏️ Correcciones y notas</button>
+    </div>
+
+    <!-- RESUMEN -->
+    <div id="tab-resumen">
+      <div class="curso-tabs">
+        <div class="curso-tab active" onclick="filterGeneral('todos',this)">Todos</div>
+        <div class="curso-tab" onclick="filterGeneral('5°1',this)">5° 1</div>
+        <div class="curso-tab" onclick="filterGeneral('5°2',this)">5° 2</div>
+      </div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:8px">Progreso por alumno</div>
+        <div id="progress-chart"></div>
+      </div>
+    </div>
+
+    <!-- ALUMNOS -->
+    <div id="tab-alumnos" style="display:none">
+      <div class="curso-tabs">
+        <div class="curso-tab active" onclick="filterAlumnos('todos',this)">Todos</div>
+        <div class="curso-tab" onclick="filterAlumnos('5°1',this)">5° 1</div>
+        <div class="curso-tab" onclick="filterAlumnos('5°2',this)">5° 2</div>
+      </div>
+      <div class="card"><div class="table-wrap" id="alumnos-table"></div></div>
+    </div>
+
+    <!-- CORRECCIONES -->
+    <div id="tab-correcciones" style="display:none">
+      <div id="correc-main">
+        <div class="curso-tabs">
+          <div class="curso-tab active" onclick="filterCorrec('todos',this)">Todos</div>
+          <div class="curso-tab" onclick="filterCorrec('5°1',this)">5° 1</div>
+          <div class="curso-tab" onclick="filterCorrec('5°2',this)">5° 2</div>
+        </div>
+        <div class="card"><div class="table-wrap" id="correc-table"></div></div>
+      </div>
+      <div id="correc-detail" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Credenciales
+const TEACHER_CREDS = {
+  'MONTES DE OCA': '21548434',
+  'DIRECTOR':      'director',
+  'VICEDIRECTORA': 'vicedirectora',
+};
+const ROL_LABELS = {
+  'MONTES DE OCA':'Profesor Montes de Oca',
+  'DIRECTOR':'Director',
+  'VICEDIRECTORA':'Vicedirectora',
+};
+
+// ── Alumnos (espejo de app.js — en producción leer de GSheets)
+const STUDENTS = [
+  {apellido:'GARCIA',   nombre:'Juan',   curso:'5°1'},
+  {apellido:'RODRIGUEZ',nombre:'María',  curso:'5°1'},
+  {apellido:'LOPEZ',    nombre:'Carlos', curso:'5°1'},
+  {apellido:'MARTINEZ', nombre:'Ana',    curso:'5°2'},
+  {apellido:'GONZALEZ', nombre:'Pedro',  curso:'5°2'},
+  {apellido:'PRUEBA',   nombre:'Usuaria',curso:'Prueba'},
+];
+
+// ── Quiz metadata (nombres y totales de preguntas)
+const QUIZZES_META = [
+  {id:'quiz-ui',    name:'Unidad Introductoria',        total:5,  type:'quiz'},
+  {id:'quiz-u1a',   name:'U1 — Consumidor y Utilidad',  total:4,  type:'quiz'},
+  {id:'quiz-u1b',   name:'U1 — Demanda y Elasticidad',  total:4,  type:'quiz'},
+  {id:'quiz-u1c',   name:'U1 — Producción y Costos',    total:4,  type:'quiz'},
+  {id:'news-1',     name:'Noticia 1 — Inflación 2024',  total:3,  type:'news'},
+  {id:'news-2',     name:'Noticia 2 — Big Tech',        total:2,  type:'news'},
+  {id:'news-3',     name:'Noticia 3 — Desregulación',   total:3,  type:'news'},
+  {id:'news-4',     name:'Noticia 4 — PBI 4,4% 2026',   total:3,  type:'news'},
+  {id:'news-5',     name:'Noticia 5 — Inflación 2026',  total:3,  type:'news'},
+  {id:'news-6',     name:'Noticia 6 — Litio y BID',     total:3,  type:'news'},
+];
+
+const ALL_SECTIONS = ['ui-1','ui-2','u1-1','u1-2','u1-3','u1-4'];
+let currentRol = '';
+
+// ── AUTO LOGIN desde URL params (viene de app.js redirect)
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const auto = params.get('auto');
+  const rol  = params.get('rol');
+  if (auto && rol && TEACHER_CREDS[decodeURIComponent(rol)] === decodeURIComponent(auto)) {
+    currentRol = decodeURIComponent(rol);
+    openDashboard();
+    return;
+  }
+  document.getElementById('tl-pass').addEventListener('keydown', e => { if(e.key==='Enter') teacherLogin(); });
+});
+
+function teacherLogin() {
+  const rol  = document.getElementById('tl-rol').value;
+  const pass = document.getElementById('tl-pass').value.trim();
+  if (!rol) { document.getElementById('tl-error').style.display='block'; return; }
+  if (TEACHER_CREDS[rol] !== pass) {
+    document.getElementById('tl-error').style.display = 'block'; return;
+  }
+  currentRol = rol;
+  openDashboard();
+}
+
+function openDashboard() {
+  document.getElementById('teacher-login').style.display = 'none';
+  document.getElementById('teacher-dash').style.display  = 'block';
+  document.getElementById('rol-badge').textContent = ROL_LABELS[currentRol] || currentRol;
+  loadDashboard();
+}
+
+function logout() {
+  currentRol = '';
+  document.getElementById('teacher-dash').style.display  = 'none';
+  document.getElementById('teacher-login').style.display = 'flex';
+  window.history.replaceState({}, '', 'docente.html');
+}
+
+// ── Leer progreso del alumno desde localStorage (mismo navegador)
+// En producción: llamar a Apps Script para leer de GSheets
+function getProgress(apellido, curso) {
+  const key = `progress_${apellido}_${curso}`;
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+
+function calcStats(prog) {
+  if (!prog) return {readPct:0,quizPct:0,globalPct:0,nota10:0,level:'🎮 Principiante',qScore:0,qTotal:0,readDone:0};
+  const readDone = Object.keys(prog.readSections||{}).length;
+  const readTotal = ALL_SECTIONS.length;
+  let qScore=0, qTotal=0;
+  QUIZZES_META.forEach(q => {
+    qTotal += q.total;
+    if (q.type==='quiz' && prog.quizScores?.[q.id]) qScore += prog.quizScores[q.id].score;
+    if (q.type==='news' && prog.newsQuiz?.[q.id])   qScore += prog.newsQuiz[q.id].score;
+  });
+  const newsReadDone = Object.keys(prog.newsRead||{}).length;
+  const newsTotal = QUIZZES_META.filter(q=>q.type==='news').length;
+  const totalItems = readTotal + qTotal + newsTotal;
+  const doneItems  = readDone + qScore + newsReadDone;
+  const globalPct  = totalItems > 0 ? Math.round(doneItems/totalItems*100) : 0;
+  const quizPct    = qTotal > 0 ? Math.round(qScore/qTotal*100) : 0;
+  const readPct    = readTotal > 0 ? Math.round(readDone/readTotal*100) : 0;
+  const nota10     = qTotal > 0 ? Math.round(qScore/qTotal*100)/10 : 0;
+  const lvls = [[95,'🏆 Maestro Máximo'],[80,'🏅 Experto'],[60,'🚀 Economista Jr.'],[40,'💡 Analista'],[20,'📖 Lector Activo'],[0,'🎮 Principiante']];
+  const level = lvls.find(([p])=>globalPct>=p)[1];
+  return {readDone,readTotal,qScore,qTotal,globalPct,quizPct,readPct,nota10,level,newsReadDone};
+}
+
+function filtrar(filter) {
+  return filter==='todos' ? STUDENTS : STUDENTS.filter(s=>s.curso===filter);
+}
+
+function loadDashboard() { renderStats(); renderAlumnosTable(); renderCorrecTable(); renderChart(); }
+
+// ── RESUMEN
+function renderStats(filter='todos') {
+  const sts = filtrar(filter).map(s=>calcStats(getProgress(s.apellido,s.curso)));
+  const n = sts.length;
+  const avgG = n ? Math.round(sts.reduce((a,s)=>a+s.globalPct,0)/n) : 0;
+  const avgN = n ? Math.round(sts.reduce((a,s)=>a+s.nota10,0)/n*10)/10 : 0;
+  const cert = sts.filter(s=>s.globalPct>=95).length;
+  const act  = sts.filter(s=>s.globalPct>0).length;
+  document.getElementById('stats-grid').innerHTML = [
+    ['Alumnos',n,'en el sistema'],['Activos',act,'con progreso > 0%'],
+    ['Promedio global',avgG+'%','de progreso'],['Nota promedio',avgN,'sobre 10'],
+    ['Certificados',cert,'nivel máximo']
+  ].map(([l,v,s])=>`<div class="stat-card"><div class="s-label">${l}</div><div class="s-value">${v}</div><div class="s-sub">${s}</div></div>`).join('');
+}
+
+function renderChart(filter='todos') {
+  const students = filtrar(filter);
+  document.getElementById('progress-chart').innerHTML = students.map(s => {
+    const st = calcStats(getProgress(s.apellido, s.curso));
+    const h  = Math.max(st.globalPct * 1.5, 4);
+    const col= st.globalPct>=80?'var(--green)':st.globalPct>=50?'var(--gold-dark)':'var(--purple)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:44px">
+      <div style="font-size:10px;font-weight:700;color:${col}">${st.globalPct}%</div>
+      <div style="width:32px;height:${h}px;background:${col};border-radius:3px 3px 0 0" title="${s.nombre} ${s.apellido}"></div>
+      <div style="font-size:9px;color:var(--text-light);text-align:center;max-width:44px">${s.apellido.slice(0,6)}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterGeneral(f,el) {
+  document.querySelectorAll('#tab-resumen .curso-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderStats(f); renderChart(f);
+}
+
+// ── ALUMNOS
+function renderAlumnosTable(filter='todos') {
+  const students = filtrar(filter);
+  let html = `<table><thead><tr>
+    <th>Alumno</th><th>Curso</th><th>Progreso global</th>
+    <th>Lecturas</th><th>Ejercitación</th><th>Nota / 10</th><th>Nivel</th>
+  </tr></thead><tbody>`;
+  students.forEach(s => {
+    const st = calcStats(getProgress(s.apellido,s.curso));
+    const nc = st.nota10>=7?'bg':st.nota10>=5?'ba':'br';
+    html += `<tr onclick="showStudentDetail('${s.apellido}','${s.curso}')">
+      <td><b>${s.apellido}</b>, ${s.nombre}</td>
+      <td>${s.curso}</td>
+      <td><div class="mini-bar"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:${st.globalPct}%;background:var(--purple)"></div></div><span style="font-size:11px;min-width:30px">${st.globalPct}%</span></div></td>
+      <td><div class="mini-bar"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:${st.readPct}%;background:var(--purple-light)"></div></div><span style="font-size:11px">${st.readDone}/${st.readTotal}</span></div></td>
+      <td><div class="mini-bar"><div class="mini-bar-track"><div class="mini-bar-fill" style="width:${st.quizPct}%;background:var(--gold)"></div></div><span style="font-size:11px">${st.qScore}/${st.qTotal}</span></div></td>
+      <td><span class="badge ${nc}" style="font-size:13px">${st.nota10}</span></td>
+      <td style="font-size:12px">${st.level}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('alumnos-table').innerHTML = html;
+}
+
+function filterAlumnos(f,el) {
+  document.querySelectorAll('#tab-alumnos .curso-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderAlumnosTable(f);
+}
+
+// ── CORRECCIONES
+function renderCorrecTable(filter='todos') {
+  const students = filtrar(filter);
+  let html = `<table><thead><tr><th>Alumno</th><th>Curso</th>`;
+  QUIZZES_META.forEach(q => html += `<th style="font-size:9px;white-space:normal;min-width:60px">${q.name}</th>`);
+  html += `<th>Nota / 10</th></tr></thead><tbody>`;
+  students.forEach(s => {
+    const prog = getProgress(s.apellido, s.curso);
+    const st   = calcStats(prog);
+    html += `<tr onclick="showStudentDetail('${s.apellido}','${s.curso}')"><td><b>${s.apellido}</b>, ${s.nombre}</td><td>${s.curso}</td>`;
+    QUIZZES_META.forEach(q => {
+      let r = null;
+      if (q.type==='quiz') r = prog?.quizScores?.[q.id];
+      if (q.type==='news') r = prog?.newsQuiz?.[q.id];
+      if (r) {
+        const p = Math.round(r.score/r.total*100);
+        const c = p>=70?'bg':p>=50?'ba':'br';
+        html += `<td><span class="badge ${c}">${r.score}/${r.total}</span></td>`;
+      } else html += `<td><span class="badge bx">—</span></td>`;
+    });
+    const nc = st.nota10>=7?'bg':st.nota10>=5?'ba':'br';
+    html += `<td><span class="badge ${nc}" style="font-size:13px;font-weight:700">${st.nota10}</span></td></tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('correc-table').innerHTML = html;
+}
+
+function filterCorrec(f,el) {
+  document.querySelectorAll('#tab-correcciones .curso-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); renderCorrecTable(f);
+}
+
+// ── DETALLE POR ALUMNO (respuestas pregunta por pregunta)
+// Banco de preguntas para mostrar en el detalle
+const QUESTIONS_DB = {
+  'quiz-ui': [
+    {t:'¿Cuál es el problema económico fundamental?',opts:['La inflación y el desempleo','La escasez de recursos frente a necesidades ilimitadas','La distribución del ingreso','El crecimiento del PBI'],c:1},
+    {t:'¿Cuál afirmación corresponde a la economía normativa?',opts:['Inflación fue del 211% en 2023','El gobierno debería aumentar el salario mínimo','La tasa de desempleo subió 2%','Las exportaciones de soja representan el 30%'],c:1},
+    {t:'En el flujo circular, ¿qué ofrecen las familias a las empresas?',opts:['Bienes y servicios','Impuestos y subsidios','Factores productivos (trabajo, capital, tierra)','Dinero en efectivo'],c:2},
+    {t:'La definición de Robbins describe la economía como:',opts:['La riqueza de las naciones','Relación entre fines y medios escasos con usos alternativos','La administración del hogar','La distribución del ingreso'],c:1},
+    {t:'Diferencia entre economía de mercado y planificada:',opts:['En el mercado hay más pobreza','En el mercado las decisiones se toman vía precios; en la planificada el Estado decide centralmente','La planificada produce más','Solo la de mercado tiene impuestos'],c:1},
+  ],
+  'quiz-u1a': [
+    {t:'La utilidad marginal decreciente significa que:',opts:['La utilidad siempre disminuye','Cada unidad adicional agrega menos satisfacción que la anterior','El precio del bien baja','La demanda aumenta cuando baja el precio'],c:1},
+    {t:'El equilibrio del consumidor ocurre cuando:',opts:['Gasta todo en un bien','La CI más alta es tangente a la restricción presupuestaria','Los precios de los bienes son iguales','La utilidad total es cero'],c:1},
+    {t:'¿Qué representa una curva de indiferencia?',opts:['Combinaciones que puede comprar con su ingreso','Relación precio-cantidad demandada','Combinaciones de dos bienes con igual satisfacción','Nivel máximo de producción'],c:2},
+    {t:'Si el ingreso del consumidor aumenta, la restricción presupuestaria:',opts:['Se desplaza a la izquierda','Se desplaza a la derecha','Solo cambia su pendiente','Permanece igual'],c:1},
+  ],
+  'quiz-u1b': [
+    {t:'Si el precio de un bien sube, según la Ley de la Demanda:',opts:['La curva de demanda se desplaza a la derecha','La cantidad demandada aumenta','La cantidad demandada disminuye (ceteris paribus)','La oferta del bien disminuye'],c:2},
+    {t:'Si elasticidad-precio = 0.3, la demanda es:',opts:['Elástica','Unitaria','Inelástica','Perfectamente elástica'],c:2},
+    {t:'El precio del aceite de girasol sube 30%. La demanda de aceite de oliva:',opts:['Baja porque tienen menos dinero','Sube, son bienes sustitutos','No cambia, son complementarios','Baja, son complementarios'],c:1},
+    {t:'Un bien inferior es aquel cuya demanda:',opts:['Aumenta cuando sube el ingreso','Disminuye cuando sube el ingreso','No cambia cuando varía el ingreso','Aumenta cuando sube su precio'],c:1},
+  ],
+  'quiz-u1c': [
+    {t:'¿En qué etapa de producción opera racionalmente la empresa?',opts:['Etapa I: PMg creciente','Etapa II: PMg positiva pero decreciente','Etapa III: PMg negativa','En cualquiera'],c:1},
+    {t:'CF=$5000, CV=$3000, Q=100 unidades. ¿CMe?',opts:['$30','$50','$80','$500'],c:2},
+    {t:'¿Cuándo maximiza beneficio una empresa?',opts:['Cuando CT es mínimo','Cuando IT es máximo','Cuando IMg = CMg','Cuando produce la máxima cantidad'],c:2},
+    {t:'En el largo plazo:',opts:['Todos los factores son variables','El capital es siempre fijo','No puede cambiar tecnología','Los CF aumentan proporcionalmente'],c:0},
+  ],
+};
+
+function showStudentDetail(apellido, curso) {
+  const s    = STUDENTS.find(x=>x.apellido===apellido&&x.curso===curso);
+  if (!s) return;
+  const prog = getProgress(apellido, curso) || {};
+  const st   = calcStats(prog);
+  
+  const nc = st.nota10>=7?'var(--green)':st.nota10>=5?'var(--gold-dark)':'var(--red)';
+  let html = `
+  <button class="detail-back" onclick="closeDetail()">← Volver al listado</button>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      <div class="detail-avatar">${apellido.charAt(0)}</div>
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--purple);font-weight:700">${s.nombre} ${apellido}</div>
+        <div style="font-size:13px;color:var(--text-light)">${curso}</div>
+      </div>
+    </div>
+    <div class="detail-stat-row">
+      <div class="dstat"><div class="dv" style="color:${nc}">${st.nota10}</div><div class="dl">Nota / 10</div></div>
+      <div class="dstat"><div class="dv">${st.globalPct}%</div><div class="dl">Progreso total</div></div>
+      <div class="dstat"><div class="dv" style="font-size:14px">${st.level}</div><div class="dl">Nivel</div></div>
+    </div>
+    <div style="margin-bottom:8px;font-size:13px;font-weight:600;color:var(--purple)">📖 Lecturas completadas: ${st.readDone} / ${st.readTotal}</div>
+    <div style="margin-bottom:18px;font-size:13px;font-weight:600;color:var(--purple)">📰 Noticias leídas: ${st.newsReadDone} / ${QUIZZES_META.filter(q=>q.type==='news').length}</div>`;
+
+  // Quiz details
+  QUIZZES_META.forEach(qm => {
+    let result = qm.type==='quiz' ? prog.quizScores?.[qm.id] : prog.newsQuiz?.[qm.id];
+    const pct  = result ? Math.round(result.score/result.total*100) : null;
+    const hc   = pct===null ? '#6B4F8E' : pct>=70 ? 'var(--green)' : pct>=50 ? '#A0760A' : 'var(--red)';
+    const scoreLabel = result ? `${result.score}/${result.total} (${pct}%)` : 'Sin responder';
+
+    html += `<div class="quiz-block">
+      <div class="quiz-block-header" style="background:${hc}">
+        <span class="qbh-name">${qm.name}</span>
+        <span class="qbh-score">${scoreLabel}</span>
+      </div>`;
+
+    if (result && result.answers && QUESTIONS_DB[qm.id]) {
+      QUESTIONS_DB[qm.id].forEach((q, qi) => {
+        const ans = result.answers[qi];
+        if (!ans) return;
+        const ok = ans.selected === ans.correct;
+        html += `<div class="answer-row">
+          <div class="ans-icon ${ok?'ans-ok':'ans-bad'}">${ok?'✓':'✗'}</div>
+          <div class="ans-text">
+            <div class="ans-q">P${qi+1}: ${q.t}</div>
+            <div class="ans-given">Respondió: <b>${q.opts[ans.selected]??'—'}</b>
+            ${!ok?` · <span class="ans-correct-lbl">Correcta: ${q.opts[ans.correct]}</span>`:''}</div>
+          </div>
+        </div>`;
+      });
+    } else if (!result) {
+      html += `<div class="answer-row"><span class="ans-pending">El alumno no realizó esta ejercitación todavía.</span></div>`;
+    } else {
+      html += `<div class="answer-row"><span style="font-size:12px;color:var(--green)">✓ Completado (${result.score}/${result.total})</span></div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `</div>`; // close card
+
+  document.getElementById('correc-main').style.display = 'none';
+  const det = document.getElementById('correc-detail');
+  det.innerHTML = html;
+  det.style.display = 'block';
+
+  // Also show if called from alumnos tab
+  showTab('correcciones');
+}
+
+function closeDetail() {
+  document.getElementById('correc-detail').style.display = 'none';
+  document.getElementById('correc-main').style.display   = 'block';
+}
+
+// ── TABS
+function showTab(tab) {
+  ['resumen','alumnos','correcciones'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab?'block':'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn,i) => {
+    btn.classList.toggle('active', ['resumen','alumnos','correcciones'][i]===tab);
+  });
+}
+</script>
+</body>
+</html>
