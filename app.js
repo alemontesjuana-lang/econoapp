@@ -1099,7 +1099,6 @@ const NEWS = [
         }
       ]
     }
-  }
   },
   // ══ NOTICIAS SEMANA DEL 17–22 MARZO 2026 ══════════
   {
@@ -1334,7 +1333,8 @@ function doLogin() {
   }
 
   currentUser = { apellido, nombre: nombre || student.nombre, curso, fullName: (nombre||student.nombre)+' '+apellido, isTeacher: false };
-
+  loadProgress(); initApp();
+}
 
 function loadProgress() {
   const key = `progress_${currentUser.apellido}_${currentUser.curso}`;
@@ -1837,7 +1837,8 @@ function findQuiz(qid) {
 
 // Allow Enter key on login
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('dni').addEventListener('keydown', e => {
+  const claveInp = document.getElementById('clave-inp');
+  if (claveInp) claveInp.addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
 });
