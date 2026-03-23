@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════
 
 // ⚠️ REEMPLAZAR con tu URL de Apps Script desplegado
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1CzgQym_USrGFEWqmlPetLmFsiNAsWIQQoQ6TPk_6ROlIMJ953fPuc5XsODDbjjzW/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKajjYVZ81rb5u1I_mB3C9DHr8uXKQLdVB9dk_LExyZ-6KK3k9ApwPuIP1MvfamMoQ/exec';
 
 // ─── ESTADO ───────────────────────────────────────
 let currentUser = null;
@@ -1324,15 +1324,18 @@ function doLogin() {
     return;
   }
 
-  // ── Acceso Alumno
-  const student = STUDENTS_DB[apellido];
-  if (!student || student.clave !== clave || !student.cursos.includes(curso)) {
+  // ── Acceso Alumno — cualquier alumno entra con su DNI como contraseña
+  if (!nombre) {
     err.style.display = 'block';
-    err.textContent = 'Datos incorrectos. Verificá tu apellido, contraseña y curso.';
+    err.textContent = 'Por favor ingresá tu nombre.';
     return;
   }
-
-  currentUser = { apellido, nombre: nombre || student.nombre, curso, fullName: (nombre||student.nombre)+' '+apellido, isTeacher: false };
+  if (!/^\d{7,8}$/.test(clave)) {
+    err.style.display = 'block';
+    err.textContent = 'La contraseña debe ser tu DNI (7 u 8 números, sin puntos ni espacios).';
+    return;
+  }
+  currentUser = { apellido, nombre, curso, fullName: nombre + ' ' + apellido, isTeacher: false };
   loadProgress(); initApp();
 }
 
@@ -1346,26 +1349,30 @@ function loadProgress() {
 
 function saveProgress() {
   const key = `progress_${currentUser.apellido}_${currentUser.curso}`;
-  localStorage.setItem(key, JSON.stringify(progress));
+  const data = Object.assign({ _nombre: currentUser.nombre }, progress);
+  localStorage.setItem(key, JSON.stringify(data));
   // También llamar al Apps Script para persistir en Drive
   syncToSheet();
 }
 
 function syncToSheet() {
-  if (SCRIPT_URL.includes('TU_DEPLOYMENT_ID')) return; // Skip if not configured
-  const payload = {
-    action: 'saveProgress',
-    apellido: currentUser.apellido,
-    nombre: currentUser.nombre,
-    curso: currentUser.curso,
-    progress: progress,
-    timestamp: new Date().toISOString()
-  };
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'text/plain' }
-  }).catch(e => console.log('Sync error:', e));
+  if (!SCRIPT_URL || SCRIPT_URL.includes('TU_DEPLOYMENT_ID')) return;
+  try {
+    const payload = {
+      action: 'saveProgress',
+      apellido: currentUser.apellido,
+      nombre: currentUser.nombre,
+      curso: currentUser.curso,
+      progress: progress,
+      timestamp: new Date().toISOString()
+    };
+    // Usamos GET para evitar CORS (Apps Script no acepta POST desde browsers externos)
+    const url = SCRIPT_URL + '?action=saveProgress&data=' + encodeURIComponent(JSON.stringify(payload));
+    fetch(url, { method: 'GET', mode: 'no-cors' })
+      .catch(e => console.log('Sync error:', e));
+  } catch(e) {
+    console.log('Sync error:', e);
+  }
 }
 
 // ─── INIT APP ──────────────────────────────────────
@@ -1498,6 +1505,18 @@ function showSection(id) {
     for (const s of unit.sections) {
       if (s.id === id) {
         ca.innerHTML = renderSection(s, unit);
+        // Auto-marcar como leído tras 30 segundos en la sección
+        if (!progress.readSections[id]) {
+          clearTimeout(window._readTimer);
+          window._readTimer = setTimeout(() => {
+            progress.readSections[id] = true;
+            saveProgress();
+            updateGlobalProgress();
+            buildSidebar();
+            showSection(id);
+          }, 30000);
+        }
+        ca.scrollTop = 0;
         return;
       }
     }
@@ -1619,7 +1638,7 @@ function renderSection(s, unit) {
     <span class="read-label">${isRead ? '✓ Completado' : 'En progreso'}</span>
   </div>
   <div class="content-text">${s.content}</div>
-  ${!isRead ? `<br><button class="btn-next" onclick="markRead('${s.id}')">✓ Marcar como leído →</button>` : `<div style="margin-top:20px;padding:12px 16px;background:var(--green-light);border-radius:8px;color:var(--green);font-size:14px;font-weight:600">✅ Sección completada</div>`}
+  <div style="margin-top:20px;padding:12px 16px;background:var(--green-light);border-radius:8px;color:var(--green);font-size:14px;font-weight:600">${isRead ? "✅ Sección completada" : "📖 Leyendo..."}</div>
 </div>`;
 }
 
