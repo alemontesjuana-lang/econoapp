@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════
 
 // ⚠️ REEMPLAZAR con tu URL de Apps Script desplegado
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKajjYVZ81rb5u1I_mB3C9DHr8uXKQLdVB9dk_LExyZ-6KK3k9ApwPuIP1MvfamMoQ/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyA73xGq8kMxQxUNvwTk_rmfSpKzEgRgBfttyeJ4GpLhxckVTaCKDTgoKT8RIvPOSgd/exec';
 
 // ─── ESTADO ───────────────────────────────────────
 let currentUser = null;
@@ -1653,12 +1653,53 @@ function markRead(sectionId) {
 // ─── QUIZ RENDERER ─────────────────────────────────
 function renderQuiz(q) {
   const prev = progress.quizScores[q.id];
+
+  // Si ya lo hizo: mostrar resultado sin posibilidad de repetir
+  if (prev) {
+    const pct = Math.round(prev.score / prev.total * 100);
+    const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--gold-dark)' : 'var(--red)';
+    const bg    = pct >= 70 ? 'var(--green-light)' : pct >= 50 ? '#FFF8E8' : 'var(--red-light)';
+    let html = `<div class="card">
+      <div class="card-title">${q.title}</div>
+      <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
+        <div style="font-size:18px;font-weight:700;color:${color}">
+          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} correctas (${pct}%)
+        </div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">
+          Realizado el ${new Date(prev.date).toLocaleDateString('es-AR')} · Esta ejercitación ya fue completada y no puede repetirse.
+        </div>
+      </div>`;
+
+    // Mostrar las preguntas con las respuestas del alumno (solo lectura)
+    q.questions.forEach((qs, qi) => {
+      const ans = prev.answers?.[qi];
+      html += `<div class="quiz-question" style="opacity:0.85">
+        <div class="q-text">${qi+1}. ${qs.text}</div>`;
+      qs.options.forEach((opt, oi) => {
+        let cls = 'quiz-option';
+        let style = '';
+        if (oi === qs.correct) { cls += ' correct'; }
+        else if (ans && ans.selected === oi && oi !== qs.correct) { cls += ' wrong'; }
+        html += `<div class="${cls}" style="pointer-events:none">
+          <span class="opt-letter">${'ABCD'[oi]}</span> ${opt}
+        </div>`;
+      });
+      if (ans) {
+        const ok = ans.selected === qs.correct;
+        html += `<div class="quiz-feedback show ${ok ? 'correct' : 'wrong'}">
+          ${ok ? '✅' : '❌'} ${decodeURIComponent(qs.feedback)}
+        </div>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  // Primera vez: mostrar quiz interactivo
   let html = `<div class="card">
     <div class="card-title">${q.title}</div>
-    <div class="card-subtitle">${q.questions.length} preguntas · Podés intentarlo las veces que quieras</div>
-    ${prev ? `<div style="padding:10px 16px;background:#FFF8E8;border-radius:8px;font-size:14px;color:var(--gold-dark);margin-bottom:20px;border:1px solid #F0D080">
-      📊 Tu última nota: <strong>${prev.score}/${prev.total}</strong> (${Math.round(prev.score/prev.total*100)}%) — ${new Date(prev.date).toLocaleDateString('es-AR')}
-    </div>` : ''}`;
+    <div class="card-subtitle">${q.questions.length} preguntas · Solo podés realizarlo una vez — respondé con atención.</div>`;
 
   q.questions.forEach((qs, qi) => {
     html += `<div class="quiz-question" id="qq-${q.id}-${qi}">
@@ -1764,12 +1805,45 @@ function markNewsRead(newsId) {
 function renderNewsQuiz(n) {
   const prev = progress.newsQuiz[n.id];
   const tempId = n.quizId;
+
+  // Si ya lo hizo: mostrar resultado bloqueado
+  if (prev) {
+    const pct = Math.round(prev.score / prev.total * 100);
+    const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--gold-dark)' : 'var(--red)';
+    const bg    = pct >= 70 ? 'var(--green-light)' : pct >= 50 ? '#FFF8E8' : 'var(--red-light)';
+    let html = `<div class="card">
+      <div style="display:inline-block;background:var(--navy);color:var(--gold-light);font-size:11px;font-weight:600;padding:4px 12px;border-radius:4px;margin-bottom:14px;text-transform:uppercase">${n.tag}</div>
+      <div class="card-title">Ejercitación — ${n.title.substring(0,40)}…</div>
+      <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
+        <div style="font-size:18px;font-weight:700;color:${color}">
+          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} correctas (${pct}%)
+        </div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">Esta ejercitación ya fue completada y no puede repetirse.</div>
+      </div>`;
+    n.quiz.questions.forEach((qs, qi) => {
+      const ans = prev.answers?.[qi];
+      html += `<div class="quiz-question" style="opacity:0.85"><div class="q-text">${qi+1}. ${qs.text}</div>`;
+      qs.options.forEach((opt, oi) => {
+        let cls = 'quiz-option';
+        if (oi === qs.correct) cls += ' correct';
+        else if (ans && ans.selected === oi) cls += ' wrong';
+        html += `<div class="${cls}" style="pointer-events:none"><span class="opt-letter">${'ABCD'[oi]}</span> ${opt}</div>`;
+      });
+      if (ans) {
+        const ok = ans.selected === qs.correct;
+        html += `<div class="quiz-feedback show ${ok?'correct':'wrong'}">${ok?'✅':'❌'} ${decodeURIComponent(qs.feedback)}</div>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  // Primera vez: interactivo
   let html = `<div class="card">
     <div style="display:inline-block;background:var(--navy);color:var(--gold-light);font-size:11px;font-weight:600;padding:4px 12px;border-radius:4px;margin-bottom:14px;text-transform:uppercase">${n.tag}</div>
     <div class="card-title">Ejercitación — ${n.title.substring(0,40)}…</div>
-    ${prev ? `<div style="padding:10px 16px;background:#FFF8E8;border-radius:8px;font-size:14px;color:var(--gold-dark);margin-bottom:20px">
-      📊 Tu última nota: <strong>${prev.score}/${prev.total}</strong>
-    </div>` : ''}`;
+    <div class="card-subtitle">Solo podés realizarlo una vez — respondé con atención.</div>`;
 
   n.quiz.questions.forEach((qs, qi) => {
     html += `<div class="quiz-question" id="qq-${tempId}-${qi}">
