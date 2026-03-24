@@ -4,7 +4,10 @@
 // ═══════════════════════════════════════
 
 // ⚠️ REEMPLAZAR con tu URL de Apps Script desplegado
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyA73xGq8kMxQxUNvwTk_rmfSpKzEgRgBfttyeJ4GpLhxckVTaCKDTgoKT8RIvPOSgd/exec';
+// ── BACKEND: JSONBin.io ────────────────────────────
+const JSONBIN_KEY = '$2a$10$1FriHEXyuGj8rGZB0DXiE.jNb9etMBg12EmtUdme/kKp/mBPkVHve';
+const JSONBIN_BIN = '69c1eebeaa77b81da9123b75';
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/bins/' + JSONBIN_BIN;
 
 // ─── ESTADO ───────────────────────────────────────
 let currentUser = null;
@@ -1355,22 +1358,44 @@ function saveProgress() {
   syncToSheet();
 }
 
-function syncToSheet() {
-  if (!SCRIPT_URL || SCRIPT_URL.includes('TU_DEPLOYMENT_ID')) return;
+async function syncToSheet() {
+  // Sync a JSONBin — lee el bin, actualiza el alumno, guarda
   try {
-    const payload = {
-      action: 'saveProgress',
+    console.log('📡 Sincronizando con JSONBin...', currentUser.apellido, currentUser.curso);
+    
+    // 1. Leer bin actual
+    const getRes = await fetch(JSONBIN_URL + '/latest', {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    const getData = await getRes.json();
+    const bin = getData.record || { students: {} };
+    if (!bin.students) bin.students = {};
+    
+    // 2. Actualizar datos del alumno
+    const key = currentUser.apellido + '_' + currentUser.curso;
+    bin.students[key] = {
       apellido: currentUser.apellido,
       nombre: currentUser.nombre,
       curso: currentUser.curso,
-      progress: progress,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      progress: progress
     };
-    const url = SCRIPT_URL + '?action=saveProgress&data=' + encodeURIComponent(JSON.stringify(payload));
-    console.log('📡 Sincronizando con Sheets...', currentUser.apellido, currentUser.curso);
-    fetch(url, { method: 'GET', mode: 'no-cors' })
-      .then(() => console.log('✅ Sync OK'))
-      .catch(e => console.log('❌ Sync error:', e));
+    
+    // 3. Guardar bin actualizado
+    const putRes = await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_KEY
+      },
+      body: JSON.stringify(bin)
+    });
+    const putData = await putRes.json();
+    if (putData.record) {
+      console.log('✅ Sync OK —', Object.keys(putData.record.students).length, 'alumnos en el bin');
+    } else {
+      console.log('⚠️ Sync respuesta:', putData);
+    }
   } catch(e) {
     console.log('❌ Sync error:', e);
   }
