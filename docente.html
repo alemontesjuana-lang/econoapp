@@ -208,7 +208,9 @@ const ROL_LABELS = {
 };
 
 // ── URL del backend (mismo que app.js)
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyA73xGq8kMxQxUNvwTk_rmfSpKzEgRgBfttyeJ4GpLhxckVTaCKDTgoKT8RIvPOSgd/exec';
+const JSONBIN_KEY = '$2a$10$1FriHEXyuGj8rGZB0DXiE.jNb9etMBg12EmtUdme/kKp/mBPkVHve';
+const JSONBIN_BIN = '69c1eebeaa77b81da9123b75';
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/bins/' + JSONBIN_BIN;
 
 // ── Datos de alumnos cargados desde Google Sheets
 let STUDENTS = [];
@@ -302,47 +304,34 @@ function filtrar(filter) {
 }
 
 async function loadDashboard() {
-  document.getElementById('stats-grid').innerHTML = '<div style="padding:20px;color:#9B7BBB;font-size:14px">⏳ Cargando datos desde Google Sheets...</div>';
+  document.getElementById('stats-grid').innerHTML = '<div style="padding:20px;color:#9B7BBB;font-size:14px">⏳ Cargando datos...</div>';
   
   try {
-    // credentials: 'omit' evita que Google redirija al login
-    const url = SCRIPT_URL + '?action=getDashboard';
-    const res = await fetch(url, { credentials: 'omit', redirect: 'follow' });
-    const text = await res.text();
+    const res = await fetch(JSONBIN_URL + '/latest', {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    const data = await res.json();
+    const bin = data.record || { students: {} };
     
-    // Buscar el JSON en la respuesta (a veces viene con HTML alrededor)
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch(e) {
-      const match = text.match(/\{.*\}/s);
-      if (match) json = JSON.parse(match[0]);
-      else throw new Error('No se pudo parsear la respuesta');
-    }
+    STUDENTS = [];
+    PROGRESS_CACHE = {};
     
-    if (json.ok && json.students) {
-      STUDENTS = [];
-      PROGRESS_CACHE = {};
-      json.students.forEach(s => {
-        STUDENTS.push({ apellido: s.apellido, nombre: s.nombre, curso: s.curso });
-        if (s.progressJson) {
-          try { PROGRESS_CACHE[s.apellido + '_' + s.curso] = JSON.parse(s.progressJson); } catch(e) {}
-        }
-      });
-      dashboardLoaded = true;
-      if (STUDENTS.length === 0) {
-        document.getElementById('stats-grid').innerHTML = '<div style="padding:20px;color:#9B7BBB;font-size:14px">📭 Aún no hay alumnos con progreso registrado en Google Sheets.</div>';
-      }
-    } else {
-      throw new Error(json.error || 'Respuesta inesperada');
+    Object.values(bin.students || {}).forEach(s => {
+      STUDENTS.push({ apellido: s.apellido, nombre: s.nombre, curso: s.curso });
+      PROGRESS_CACHE[s.apellido + '_' + s.curso] = s.progress || {};
+    });
+    
+    dashboardLoaded = true;
+    
+    if (STUDENTS.length === 0) {
+      document.getElementById('stats-grid').innerHTML = 
+        '<div style="padding:20px;color:#9B7BBB;font-size:14px">📭 Aún no hay alumnos con progreso registrado.</div>';
     }
   } catch(e) {
     console.log('Error cargando dashboard:', e);
     document.getElementById('stats-grid').innerHTML = 
       '<div style="padding:20px;color:#922B21;font-size:14px;background:#FDECEA;border-radius:10px;">' +
-      '⚠️ <b>Error al conectar con Google Sheets.</b><br>' +
-      'Asegurate de que el deployment de Apps Script esté activo y con acceso "Cualquier persona".<br><br>' +
-      '<small>' + e.message + '</small></div>';
+      '⚠️ <b>Error al conectar.</b> ' + e.message + '</div>';
     return;
   }
   
