@@ -6,7 +6,7 @@
 // ⚠️ REEMPLAZAR con tu URL de Apps Script desplegado
 // ── BACKEND: JSONBin.io ────────────────────────────
 const JSONBIN_KEY = '$2a$10$1FriHEXyuGj8rGZB0DXiE.jNb9etMBg12EmtUdme/kKp/mBPkVHve';
-const JSONBIN_BIN = '69c2e6b7c3097a1dd557738a';
+const JSONBIN_BIN = '69c1eebeaa77b81da9123b75';
 const JSONBIN_URL = 'https://api.jsonbin.io/v3/bins/' + JSONBIN_BIN;
 
 // ─── ESTADO ───────────────────────────────────────
