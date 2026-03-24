@@ -1366,12 +1366,13 @@ function syncToSheet() {
       progress: progress,
       timestamp: new Date().toISOString()
     };
-    // Usamos GET para evitar CORS (Apps Script no acepta POST desde browsers externos)
     const url = SCRIPT_URL + '?action=saveProgress&data=' + encodeURIComponent(JSON.stringify(payload));
+    console.log('📡 Sincronizando con Sheets...', currentUser.apellido, currentUser.curso);
     fetch(url, { method: 'GET', mode: 'no-cors' })
-      .catch(e => console.log('Sync error:', e));
+      .then(() => console.log('✅ Sync OK'))
+      .catch(e => console.log('❌ Sync error:', e));
   } catch(e) {
-    console.log('Sync error:', e);
+    console.log('❌ Sync error:', e);
   }
 }
 
@@ -1687,7 +1688,7 @@ function renderQuiz(q) {
       if (ans) {
         const ok = ans.selected === qs.correct;
         html += `<div class="quiz-feedback show ${ok ? 'correct' : 'wrong'}">
-          ${ok ? '✅' : '❌'} ${decodeURIComponent(qs.feedback)}
+          ${ok ? '✅' : '❌'} ${safeDecode(qs.feedback)}
         </div>`;
       }
       html += `</div>`;
@@ -1716,6 +1717,12 @@ function renderQuiz(q) {
   html += `<button class="btn-check" id="btn-check-${q.id}" onclick="submitQuiz('${q.id}',${q.questions.length})" disabled>Corregir →</button>`;
   html += `</div>`;
   return html;
+}
+
+// Decode seguro — evita URIError con caracteres especiales en feedbacks
+function safeDecode(str) {
+  if (!str) return '';
+  try { return decodeURIComponent(str); } catch(e) { return str; }
 }
 
 let quizState = {}; // { quizId: { qi: selectedOi } }
@@ -1750,7 +1757,7 @@ function submitQuiz(qid, total) {
       document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.remove('selected');
       document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.add('correct');
       fb.className = 'quiz-feedback show correct';
-      fb.innerHTML = '✅ ' + decodeURIComponent(qs.feedback);
+      fb.innerHTML = '✅ Correcto. ' + safeDecode(qs.feedback);
     } else {
       if (sel !== undefined) {
         document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.remove('selected');
@@ -1758,7 +1765,8 @@ function submitQuiz(qid, total) {
       }
       document.getElementById(`opt-${qid}-${qi}-${qs.correct}`).classList.add('correct');
       fb.className = 'quiz-feedback show wrong';
-      fb.innerHTML = '❌ ' + decodeURIComponent(qs.feedback);
+      const respCorrecta = qs.options[qs.correct];
+      fb.innerHTML = '❌ Incorrecto. La respuesta correcta es: <strong>' + respCorrecta + '</strong>. ' + safeDecode(qs.feedback);
     }
     // Disable all options
     qs.options.forEach((_,oi) => {
@@ -1831,7 +1839,7 @@ function renderNewsQuiz(n) {
       });
       if (ans) {
         const ok = ans.selected === qs.correct;
-        html += `<div class="quiz-feedback show ${ok?'correct':'wrong'}">${ok?'✅':'❌'} ${decodeURIComponent(qs.feedback)}</div>`;
+        html += `<div class="quiz-feedback show ${ok?'correct':'wrong'}">${ok?'✅':'❌'} ${safeDecode(qs.feedback)}</div>`;
       }
       html += `</div>`;
     });
@@ -1881,19 +1889,20 @@ function submitNewsQuiz(qid, newsId, total) {
       score++;
       document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.add('correct');
       fb.className = 'quiz-feedback show correct';
-      fb.innerHTML = '✅ ' + decodeURIComponent(qs.feedback);
+      fb.innerHTML = '✅ Correcto. ' + safeDecode(qs.feedback);
     } else {
       if (sel !== undefined) document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.add('wrong');
       document.getElementById(`opt-${qid}-${qi}-${qs.correct}`).classList.add('correct');
       fb.className = 'quiz-feedback show wrong';
-      fb.innerHTML = '❌ ' + decodeURIComponent(qs.feedback);
+      const respCorrecta = qs.options[qs.correct];
+      fb.innerHTML = '❌ Incorrecto. La respuesta correcta es: <strong>' + respCorrecta + '</strong>. ' + safeDecode(qs.feedback);
     }
     qs.options.forEach((_,oi) => {
       const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
       if (el) el.onclick = null;
     });
   });
-  progress.newsQuiz[newsId] = { score, total, date: new Date().toISOString() };
+  progress.newsQuiz[newsId] = { score, total, answers: Object.fromEntries(n.quiz.questions.map((_,qi) => [qi, { selected: quizState[qid]?.[qi], correct: n.quiz.questions[qi].correct }])), date: new Date().toISOString() };
   saveProgress();
   updateGlobalProgress();
   buildSidebar();
