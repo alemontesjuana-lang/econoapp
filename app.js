@@ -1365,7 +1365,8 @@ async function syncToSheet() {
     
     // 1. Leer bin actual
     const getRes = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_KEY }
+      headers: { 'X-Master-Key': JSONBIN_KEY,
+        'X-Access-Key': '$2a$10$32GqIg957R1/y1pFyptZueTo6F3P/HUKlUJg2pH3yGAfRFUFhVndi' }
     });
     const getData = await getRes.json();
     const bin = getData.record || { students: {} };
@@ -1386,7 +1387,8 @@ async function syncToSheet() {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY
+        'X-Master-Key': JSONBIN_KEY,
+        'X-Access-Key': '$2a$10$32GqIg957R1/y1pFyptZueTo6F3P/HUKlUJg2pH3yGAfRFUFhVndi'
       },
       body: JSON.stringify(bin)
     });
