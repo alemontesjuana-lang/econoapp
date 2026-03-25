@@ -308,7 +308,8 @@ async function loadDashboard() {
   
   try {
     const res = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_KEY }
+      headers: { 'X-Master-Key': JSONBIN_KEY,
+        'X-Access-Key': '$2a$10$32GqIg957R1/y1pFyptZueTo6F3P/HUKlUJg2pH3yGAfRFUFhVndi' }
     });
     const data = await res.json();
     const bin = data.record || { students: {} };
