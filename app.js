@@ -4,10 +4,8 @@
 // ═══════════════════════════════════════
 
 // ⚠️ REEMPLAZAR con tu URL de Apps Script desplegado
-// ── BACKEND: JSONBin.io ────────────────────────────
-const JSONBIN_KEY = '$2a$10$1FriHEXyuGj8rGZB0DXiE.jNb9etMBg12EmtUdme/kKp/mBPkVHve';
-const JSONBIN_BIN = '69c2e6b7c3097a1dd557738a';
-const JSONBIN_URL = 'https://api.jsonbin.io/v3/bins/' + JSONBIN_BIN;
+// ── BACKEND: Firebase Realtime Database ────────────
+const FIREBASE_URL = 'https://econoapp2026-default-rtdb.firebaseio.com';
 
 // ─── ESTADO ───────────────────────────────────────
 let currentUser = null;
@@ -1359,44 +1357,27 @@ function saveProgress() {
 }
 
 async function syncToSheet() {
-  // Sync a JSONBin — lee el bin, actualiza el alumno, guarda
   try {
-    console.log('📡 Sincronizando con JSONBin...', currentUser.apellido, currentUser.curso);
-    
-    // 1. Leer bin actual
-    const getRes = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_KEY,
-        'X-Access-Key': '$2a$10$32GqIg957R1/y1pFyptZueTo6F3P/HUKlUJg2pH3yGAfRFUFhVndi' }
-    });
-    const getData = await getRes.json();
-    const bin = getData.record || { students: {} };
-    if (!bin.students) bin.students = {};
-    
-    // 2. Actualizar datos del alumno
-    const key = currentUser.apellido + '_' + currentUser.curso;
-    bin.students[key] = {
+    console.log('📡 Sincronizando con Firebase...', currentUser.apellido, currentUser.curso);
+    const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
+    const url = FIREBASE_URL + '/students/' + key + '.json';
+    const payload = {
       apellido: currentUser.apellido,
       nombre: currentUser.nombre,
       curso: currentUser.curso,
       timestamp: new Date().toISOString(),
       progress: progress
     };
-    
-    // 3. Guardar bin actualizado
-    const putRes = await fetch(JSONBIN_URL, {
+    const res = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY,
-        'X-Access-Key': '$2a$10$32GqIg957R1/y1pFyptZueTo6F3P/HUKlUJg2pH3yGAfRFUFhVndi'
-      },
-      body: JSON.stringify(bin)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    const putData = await putRes.json();
-    if (putData.record) {
-      console.log('✅ Sync OK —', Object.keys(putData.record.students).length, 'alumnos en el bin');
+    const data = await res.json();
+    if (data && data.apellido) {
+      console.log('✅ Sync OK — Firebase');
     } else {
-      console.log('⚠️ Sync respuesta:', putData);
+      console.log('⚠️ Sync respuesta:', data);
     }
   } catch(e) {
     console.log('❌ Sync error:', e);
