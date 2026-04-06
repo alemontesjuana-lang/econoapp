@@ -1393,9 +1393,38 @@ function initApp() {
   document.getElementById('h-curso').textContent = currentUser.curso;
   document.getElementById('h-avatar').textContent = currentUser.apellido.charAt(0);
 
+  // Manejo del botón atrás — no salir de la app
+  history.pushState({ section: 'home' }, '', '');
+  window.addEventListener('popstate', (e) => {
+    if (currentUser) {
+      const sec = e.state?.section || 'home';
+      currentSection = sec;
+      buildSidebar();
+      const ca = document.getElementById('content-area');
+      // re-render sin pushState para no acumular historial
+      _renderSection(sec, ca);
+      history.pushState({ section: sec }, '', '');
+    }
+  });
+
   buildSidebar();
   updateGlobalProgress();
   showSection('home');
+}
+
+function _renderSection(id, ca) {
+  if (id === 'home') { ca.innerHTML = renderHome(); return; }
+  for (const unit of CURRICULUM) {
+    for (const s of unit.sections) {
+      if (s.id === id) { ca.innerHTML = renderSection(s, unit); ca.scrollTop = 0; return; }
+    }
+    for (const q of unit.quizzes) {
+      if (q.id === id) { ca.innerHTML = renderQuiz(q); return; }
+    }
+  }
+  for (const n of NEWS) {
+    if (n.id === id) { ca.innerHTML = renderNews(n); return; }
+  }
 }
 
 // ─── SIDEBAR ───────────────────────────────────────
@@ -1501,6 +1530,7 @@ function updateGlobalProgress() {
 // ─── CONTENT RENDERER ──────────────────────────────
 function showSection(id) {
   currentSection = id;
+  history.pushState({ section: id }, '', '');
   buildSidebar();
   const ca = document.getElementById('content-area');
 
@@ -1624,6 +1654,9 @@ ${quizSummary ? `<div class="card">
       ${u.sections.map(s => `<div onclick="showSection('${s.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${progress.readSections[s.id]?'var(--green-light)':'var(--cream)'};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid)">
         ${progress.readSections[s.id] ? '✅' : '⚪'} ${s.title}
       </div>`).join('')}
+      ${u.quizzes.map(q => { const r = progress.quizScores[q.id]; const pct = r ? Math.round(r.score/r.total*100) : null; const bg = r ? (pct>=70?'var(--green-light)':pct>=50?'#FFF8E8':'var(--red-light)') : '#F0E6F8'; return `<div onclick="showSection('${q.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${bg};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid);border:1.5px solid var(--purple-pale);">
+        ✏️ <span style="flex:1">${q.title.replace('Ejercitación — ','')}</span>${r ? `<span style="font-size:12px;font-weight:700;color:${pct>=70?'var(--green)':pct>=50?'var(--gold-dark)':'var(--red)'}">${r.score}/${r.total}</span>` : '<span style="font-size:11px;color:var(--purple-light)">Pendiente</span>'}
+      </div>`; }).join('')}
     </div>
   `).join('')}
   <div style="margin-top:8px">
