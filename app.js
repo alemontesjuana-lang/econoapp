@@ -1393,38 +1393,9 @@ function initApp() {
   document.getElementById('h-curso').textContent = currentUser.curso;
   document.getElementById('h-avatar').textContent = currentUser.apellido.charAt(0);
 
-  // Manejo del botón atrás — no salir de la app
-  history.pushState({ section: 'home' }, '', '');
-  window.addEventListener('popstate', (e) => {
-    if (currentUser) {
-      const sec = e.state?.section || 'home';
-      currentSection = sec;
-      buildSidebar();
-      const ca = document.getElementById('content-area');
-      // re-render sin pushState para no acumular historial
-      _renderSection(sec, ca);
-      history.pushState({ section: sec }, '', '');
-    }
-  });
-
   buildSidebar();
   updateGlobalProgress();
   showSection('home');
-}
-
-function _renderSection(id, ca) {
-  if (id === 'home') { ca.innerHTML = renderHome(); return; }
-  for (const unit of CURRICULUM) {
-    for (const s of unit.sections) {
-      if (s.id === id) { ca.innerHTML = renderSection(s, unit); ca.scrollTop = 0; return; }
-    }
-    for (const q of unit.quizzes) {
-      if (q.id === id) { ca.innerHTML = renderQuiz(q); return; }
-    }
-  }
-  for (const n of NEWS) {
-    if (n.id === id) { ca.innerHTML = renderNews(n); return; }
-  }
 }
 
 // ─── SIDEBAR ───────────────────────────────────────
@@ -1530,7 +1501,6 @@ function updateGlobalProgress() {
 // ─── CONTENT RENDERER ──────────────────────────────
 function showSection(id) {
   currentSection = id;
-  history.pushState({ section: id }, '', '');
   buildSidebar();
   const ca = document.getElementById('content-area');
 
@@ -1654,9 +1624,6 @@ ${quizSummary ? `<div class="card">
       ${u.sections.map(s => `<div onclick="showSection('${s.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${progress.readSections[s.id]?'var(--green-light)':'var(--cream)'};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid)">
         ${progress.readSections[s.id] ? '✅' : '⚪'} ${s.title}
       </div>`).join('')}
-      ${u.quizzes.map(q => { const r = progress.quizScores[q.id]; const pct = r ? Math.round(r.score/r.total*100) : null; const bg = r ? (pct>=70?'var(--green-light)':pct>=50?'#FFF8E8':'var(--red-light)') : '#F0E6F8'; return `<div onclick="showSection('${q.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${bg};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid);border:1.5px solid var(--purple-pale);">
-        ✏️ <span style="flex:1">${q.title.replace('Ejercitación — ','')}</span>${r ? `<span style="font-size:12px;font-weight:700;color:${pct>=70?'var(--green)':pct>=50?'var(--gold-dark)':'var(--red)'}">${r.score}/${r.total}</span>` : '<span style="font-size:11px;color:var(--purple-light)">Pendiente</span>'}
-      </div>`; }).join('')}
     </div>
   `).join('')}
   <div style="margin-top:8px">
@@ -1671,6 +1638,7 @@ ${quizSummary ? `<div class="card">
 function renderSection(s, unit) {
   const isRead = progress.readSections[s.id];
   return `
+<button class="btn-back" onclick="showSection('home')">← Volver al inicio</button>
 <div class="card">
   <div style="font-size:12px;color:var(--text-light);margin-bottom:4px;letter-spacing:0.5px">${unit.icon} ${unit.title}</div>
   <div class="card-title">${s.title}</div>
@@ -1701,7 +1669,7 @@ function renderQuiz(q) {
     const pct = Math.round(prev.score / prev.total * 100);
     const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--gold-dark)' : 'var(--red)';
     const bg    = pct >= 70 ? 'var(--green-light)' : pct >= 50 ? '#FFF8E8' : 'var(--red-light)';
-    let html = `<div class="card">
+    let html = `<button class="btn-back" onclick="showSection('home')">← Volver al inicio</button><div class="card">
       <div class="card-title">${q.title}</div>
       <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
         <div style="font-size:18px;font-weight:700;color:${color}">
@@ -1739,7 +1707,7 @@ function renderQuiz(q) {
   }
 
   // Primera vez: mostrar quiz interactivo
-  let html = `<div class="card">
+  let html = `<button class="btn-back" onclick="showSection('home')">← Volver al inicio</button><div class="card">
     <div class="card-title">${q.title}</div>
     <div class="card-subtitle">${q.questions.length} preguntas · Solo podés realizarlo una vez — respondé con atención.</div>`;
 
@@ -1832,6 +1800,7 @@ function submitQuiz(qid, total) {
 function renderNews(n) {
   const isRead = progress.newsRead[n.id];
   return `
+<button class="btn-back" onclick="showSection('home')">← Volver al inicio</button>
 <div class="card">
   <div style="display:inline-block;background:var(--navy);color:var(--gold-light);font-size:11px;font-weight:600;letter-spacing:0.8px;padding:4px 12px;border-radius:4px;margin-bottom:14px;text-transform:uppercase">${n.tag}</div>
   <div class="card-title">${n.title}</div>
@@ -1860,7 +1829,7 @@ function renderNewsQuiz(n) {
     const pct = Math.round(prev.score / prev.total * 100);
     const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--gold-dark)' : 'var(--red)';
     const bg    = pct >= 70 ? 'var(--green-light)' : pct >= 50 ? '#FFF8E8' : 'var(--red-light)';
-    let html = `<div class="card">
+    let html = `<button class="btn-back" onclick="showSection('${n.id}')">← Volver a la noticia</button><div class="card">
       <div style="display:inline-block;background:var(--navy);color:var(--gold-light);font-size:11px;font-weight:600;padding:4px 12px;border-radius:4px;margin-bottom:14px;text-transform:uppercase">${n.tag}</div>
       <div class="card-title">Ejercitación — ${n.title.substring(0,40)}…</div>
       <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
@@ -1889,7 +1858,7 @@ function renderNewsQuiz(n) {
   }
 
   // Primera vez: interactivo
-  let html = `<div class="card">
+  let html = `<button class="btn-back" onclick="showSection('${n.id}')">← Volver a la noticia</button><div class="card">
     <div style="display:inline-block;background:var(--navy);color:var(--gold-light);font-size:11px;font-weight:600;padding:4px 12px;border-radius:4px;margin-bottom:14px;text-transform:uppercase">${n.tag}</div>
     <div class="card-title">Ejercitación — ${n.title.substring(0,40)}…</div>
     <div class="card-subtitle">Solo podés realizarlo una vez — respondé con atención.</div>`;
