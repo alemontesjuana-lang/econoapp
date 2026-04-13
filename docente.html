@@ -275,23 +275,35 @@ function getProgress(apellido, curso) {
 }
 
 function calcStats(prog) {
-  if (!prog) return {readPct:0,quizPct:0,globalPct:0,nota10:0,level:'🎮 Principiante',qScore:0,qTotal:0,readDone:0};
-  const readDone = Object.keys(prog.readSections||{}).length;
+  if (!prog) return {readPct:0,quizPct:0,globalPct:0,nota10:0,level:'🎮 Principiante',qScore:0,qTotal:0,readDone:0,newsReadDone:0};
+  
+  // Lecturas de secciones (binario: hecha o no)
+  const readDone  = Object.keys(prog.readSections||{}).length;
   const readTotal = ALL_SECTIONS.length;
-  let qScore=0, qTotal=0;
-  QUIZZES_META.forEach(q => {
+
+  // Quizzes de contenido: puntaje sobre total de preguntas
+  let qScore = 0, qTotal = 0;
+  QUIZZES_META.filter(q=>q.type==='quiz').forEach(q => {
     qTotal += q.total;
-    if (q.type==='quiz' && prog.quizScores?.[q.id]) qScore += prog.quizScores[q.id].score;
-    if (q.type==='news' && prog.newsQuiz?.[q.id])   qScore += prog.newsQuiz[q.id].score;
+    if (prog.quizScores?.[q.id]) qScore += prog.quizScores[q.id].score;
   });
-  const newsReadDone = Object.keys(prog.newsRead||{}).length;
-  const newsTotal = QUIZZES_META.filter(q=>q.type==='news').length;
+
+  // Noticias: cada noticia vale 2 ítems (lectura + quiz realizado), igual que app.js
+  const newsQuizMeta   = QUIZZES_META.filter(q=>q.type==='news');
+  const newsReadDone   = Object.keys(prog.newsRead||{}).length;
+  const newsQuizDone   = newsQuizMeta.filter(q => prog.newsQuiz?.[q.id]).length;
+  const newsTotal      = newsQuizMeta.length * 2; // lectura + quiz por cada noticia
+
+  // Progreso global: suma de ítems completados sobre total posible (nunca supera 100)
   const totalItems = readTotal + qTotal + newsTotal;
-  const doneItems  = readDone + qScore + newsReadDone;
-  const globalPct  = totalItems > 0 ? Math.round(doneItems/totalItems*100) : 0;
-  const quizPct    = qTotal > 0 ? Math.round(qScore/qTotal*100) : 0;
-  const readPct    = readTotal > 0 ? Math.round(readDone/readTotal*100) : 0;
-  const nota10     = qTotal > 0 ? Math.round(qScore/qTotal*100)/10 : 0;
+  const doneItems  = readDone  + qScore + newsReadDone + newsQuizDone;
+  const globalPct  = totalItems > 0 ? Math.min(100, Math.round(doneItems/totalItems*100)) : 0;
+
+  // Porcentajes parciales
+  const quizPct = qTotal > 0 ? Math.round(qScore/qTotal*100) : 0;
+  const readPct = readTotal > 0 ? Math.round(readDone/readTotal*100) : 0;
+  const nota10  = qTotal > 0 ? Math.round(qScore/qTotal*100)/10 : 0;
+
   const lvls = [[95,'🏆 Maestro Máximo'],[80,'🏅 Experto'],[60,'🚀 Economista Jr.'],[40,'💡 Analista'],[20,'📖 Lector Activo'],[0,'🎮 Principiante']];
   const level = lvls.find(([p])=>globalPct>=p)[1];
   return {readDone,readTotal,qScore,qTotal,globalPct,quizPct,readPct,nota10,level,newsReadDone};
