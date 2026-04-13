@@ -1710,7 +1710,7 @@ function renderQuiz(q) {
       <div class="card-title">${q.title}</div>
       <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
         <div style="font-size:18px;font-weight:700;color:${color}">
-          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} correctas (${pct}%)
+          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} puntos (${pct}%)
         </div>
         <div style="font-size:12px;color:var(--text-light);margin-top:4px">
           Realizado el ${new Date(prev.date).toLocaleDateString('es-AR')} · Esta ejercitación ya fue completada y no puede repetirse.
@@ -1794,11 +1794,24 @@ function selectOption(qid, qi, oi, correct, feedbackEnc) {
   }
 }
 
+// retryState almacena las respuestas del reintento: { qid: { qi: selectedOi } }
+let retryState = {};
+
 function submitQuiz(qid, total) {
   const q = findQuiz(qid);
   if (!q) return;
+
+  // ── ¿Es un reintento? ──────────────────────────────
+  const isRetry = !!(retryState[qid]);
+  if (isRetry) {
+    submitQuizRetry(qid, total, q);
+    return;
+  }
+
+  // ── Primera corrección ─────────────────────────────
   let score = 0;
   const answers = {};
+  let hasWrong = false;
 
   q.questions.forEach((qs, qi) => {
     const sel = quizState[qid]?.[qi];
@@ -1811,33 +1824,168 @@ function submitQuiz(qid, total) {
       document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.add('correct');
       fb.className = 'quiz-feedback show correct';
       fb.innerHTML = '✅ Correcto. ' + safeDecode(qs.feedback);
+      // Bloquear opciones de preguntas correctas
+      qs.options.forEach((_,oi) => {
+        const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
+        if (el) el.onclick = null;
+      });
     } else {
+      hasWrong = true;
+      // Marcar la elegida como incorrecta
       if (sel !== undefined) {
         document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.remove('selected');
         document.getElementById(`opt-${qid}-${qi}-${sel}`).classList.add('wrong');
       }
-      document.getElementById(`opt-${qid}-${qi}-${qs.correct}`).classList.add('correct');
+      // Bloquear todas las opciones en primer lugar
+      qs.options.forEach((_,oi) => {
+        const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
+        if (el) el.onclick = null;
+      });
+      // Mostrar feedback de error
       fb.className = 'quiz-feedback show wrong';
-      const respCorrecta = qs.options[qs.correct];
-      fb.innerHTML = '❌ Incorrecto. La respuesta correcta es: <strong>' + respCorrecta + '</strong>. ' + safeDecode(qs.feedback);
+      fb.innerHTML = '❌ Incorrecto. Tenés una segunda oportunidad: elegí entre las opciones resaltadas abajo.';
+
+      // ── Armar reintento: mostrar 2 opciones resaltadas ──
+      // opciones incorrectas (excluir la que ya eligió y la correcta)
+      const incorrectas = qs.options
+        .map((_,oi) => oi)
+        .filter(oi => oi !== qs.correct && oi !== sel);
+      // elegir 1 trampa al azar entre las incorrectas restantes
+      const trampa = incorrectas[Math.floor(Math.random() * incorrectas.length)];
+      const visibles = [qs.correct, trampa].sort(() => Math.random() - 0.5);
+
+      qs.options.forEach((opt, oi) => {
+        const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
+        if (!el) return;
+        if (visibles.includes(oi)) {
+          // Resaltar con color naranja/amarillo y habilitar clic de reintento
+          el.style.border = '2px solid #E67E22';
+          el.style.background = '#FFF3E0';
+          el.style.cursor = 'pointer';
+          el.onclick = () => selectRetryOption(qid, qi, oi, qs.correct, q.questions.length);
+        } else {
+          // Ocultar las demás (dejar visibles pero muy tenues)
+          el.style.opacity = '0.25';
+          el.style.cursor = 'default';
+        }
+      });
     }
-    // Disable all options
-    qs.options.forEach((_,oi) => {
-      const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
-      if (el) el.onclick = null;
-    });
   });
 
-  progress.quizScores[qid] = { score, total, answers, date: new Date().toISOString() };
+  // Guardar estado parcial de primera corrección
+  // score = puntos llenos (1 por correcta al primer intento)
+  // Guardamos provisionalmente; se sobreescribirá al terminar el reintento
+  progress.quizScores[qid] = { score, total, answers, date: new Date().toISOString(), pendingRetry: hasWrong };
   saveProgress();
   updateGlobalProgress();
   buildSidebar();
 
   const btn = document.getElementById(`btn-check-${qid}`);
-  const pct = Math.round(score/total*100);
+
+  if (hasWrong) {
+    // Inicializar retryState para este quiz
+    retryState[qid] = {};
+    // Contar preguntas incorrectas
+    const wrongCount = q.questions.filter((_,qi) => quizState[qid]?.[qi] !== q.questions[qi].correct).length;
+    btn.outerHTML = `<button class="btn-check" id="btn-check-${qid}" onclick="submitQuiz('${qid}',${total})" disabled>
+      🔁 Confirmar reintento (${wrongCount} pregunta${wrongCount>1?'s':''} incorrecta${wrongCount>1?'s':''})
+    </button>`;
+  } else {
+    // Todo bien al primer intento
+    const pct = Math.round(score/total*100);
+    const msg = '🌟 ¡Perfecto! Todo correcto al primer intento.';
+    btn.outerHTML = `<div style="margin-top:20px;padding:16px 20px;border-radius:10px;background:var(--green-light);color:var(--green);font-size:16px;font-weight:700">
+      ${msg} · ${score}/${total} correctas (${pct}%)
+    </div>`;
+  }
+}
+
+function selectRetryOption(qid, qi, oi, correct, totalPreguntas) {
+  if (!retryState[qid]) retryState[qid] = {};
+
+  // Limpiar selección previa de esta pregunta en reintento
+  const prev = retryState[qid][qi];
+  if (prev !== undefined) {
+    const prevEl = document.getElementById(`opt-${qid}-${qi}-${prev}`);
+    if (prevEl) {
+      prevEl.style.border = '2px solid #E67E22';
+      prevEl.style.background = '#FFF3E0';
+    }
+  }
+
+  retryState[qid][qi] = oi;
+  const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
+  if (el) {
+    el.style.border = '2px solid #5B2C6F';
+    el.style.background = '#E8D5F5';
+  }
+
+  // Contar cuántas preguntas incorrectas de la primera vez necesitan reintento
+  const q = findQuiz(qid);
+  const wrongQs = q.questions.map((_,i) => i).filter(i => quizState[qid]?.[i] !== q.questions[i].correct);
+  const answered = wrongQs.filter(i => retryState[qid][i] !== undefined).length;
+
+  if (answered === wrongQs.length) {
+    const btn = document.getElementById(`btn-check-${qid}`);
+    if (btn) btn.disabled = false;
+  }
+}
+
+function submitQuizRetry(qid, total, q) {
+  // Calcular puntaje final: correctas al 1er intento = 1 pto, correctas en reintento = 0.5 pto
+  let scoreBase = 0;   // correctas al primer intento
+  let scoreRetry = 0;  // correctas en reintento
+  const answers = {};
+
+  q.questions.forEach((qs, qi) => {
+    const selOriginal = quizState[qid]?.[qi];
+    if (selOriginal === qs.correct) {
+      scoreBase++;
+      answers[qi] = { selected: selOriginal, correct: qs.correct, retry: false };
+    } else {
+      const selRetry = retryState[qid]?.[qi];
+      answers[qi] = { selected: selOriginal, retrySelected: selRetry, correct: qs.correct, retry: true };
+      const fb = document.getElementById(`fb-${qid}-${qi}`);
+      // Bloquear opciones del reintento
+      qs.options.forEach((_,oi) => {
+        const el = document.getElementById(`opt-${qid}-${qi}-${oi}`);
+        if (el) el.onclick = null;
+      });
+      if (selRetry === qs.correct) {
+        scoreRetry++;
+        const el = document.getElementById(`opt-${qid}-${qi}-${selRetry}`);
+        if (el) { el.style.border = '2px solid var(--green)'; el.style.background = 'var(--green-light)'; }
+        if (fb) { fb.className = 'quiz-feedback show correct'; fb.innerHTML = '✅ ¡Correcto en el reintento! (vale 0.5 puntos). ' + safeDecode(qs.feedback); }
+      } else {
+        // Mostrar la correcta
+        const elCorr = document.getElementById(`opt-${qid}-${qi}-${qs.correct}`);
+        if (elCorr) { elCorr.style.border = '2px solid var(--green)'; elCorr.style.background = 'var(--green-light)'; }
+        if (selRetry !== undefined) {
+          const elWrong = document.getElementById(`opt-${qid}-${qi}-${selRetry}`);
+          if (elWrong) { elWrong.style.border = '2px solid var(--red)'; elWrong.style.background = 'var(--red-light)'; }
+        }
+        if (fb) { fb.className = 'quiz-feedback show wrong'; fb.innerHTML = '❌ Incorrecto. La respuesta correcta era: <strong>' + qs.options[qs.correct] + '</strong>. ' + safeDecode(qs.feedback); }
+      }
+    }
+  });
+
+  // Puntaje final: base (enteros) + retry (mitades), redondeado a 1 decimal, máximo = total
+  const scoreFinal = Math.min(scoreBase + scoreRetry * 0.5, total);
+
+  progress.quizScores[qid] = { score: scoreFinal, total, answers, date: new Date().toISOString(), pendingRetry: false };
+  saveProgress();
+  updateGlobalProgress();
+  buildSidebar();
+
+  // Limpiar estado de reintento
+  delete retryState[qid];
+
+  const pct = Math.round(scoreFinal/total*100);
   const msg = pct === 100 ? '🌟 ¡Perfecto!' : pct >= 70 ? '✅ ¡Muy bien!' : pct >= 50 ? '📚 Seguí estudiando' : '💪 Repasá el contenido';
-  btn.outerHTML = `<div style="margin-top:20px;padding:16px 20px;border-radius:10px;background:${pct>=70?'var(--green-light)':'var(--red-light)'};color:${pct>=70?'var(--green)':'var(--red)'};font-size:16px;font-weight:700">
-    ${msg} · ${score}/${total} correctas (${pct}%)
+  const btn = document.getElementById(`btn-check-${qid}`);
+  if (btn) btn.outerHTML = `<div style="margin-top:20px;padding:16px 20px;border-radius:10px;background:${pct>=70?'var(--green-light)':'var(--red-light)'};color:${pct>=70?'var(--green)':'var(--red)'};font-size:16px;font-weight:700">
+    ${msg} · ${scoreFinal}/${total} puntos (${pct}%)
+    <div style="font-size:12px;margin-top:4px;opacity:0.8">${scoreBase} correcta${scoreBase!==1?'s':''} al 1er intento + ${scoreRetry} en reintento (×0.5)</div>
   </div>`;
 }
 
@@ -1878,7 +2026,7 @@ function renderNewsQuiz(n) {
       <div class="card-title">Ejercitación — ${n.title.substring(0,40)}…</div>
       <div style="padding:16px 20px;background:${bg};border-radius:10px;margin-bottom:18px">
         <div style="font-size:18px;font-weight:700;color:${color}">
-          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} correctas (${pct}%)
+          ${pct >= 70 ? '✅' : pct >= 50 ? '⚠️' : '❌'} ${prev.score}/${prev.total} puntos (${pct}%)
         </div>
         <div style="font-size:12px;color:var(--text-light);margin-top:4px">Esta ejercitación ya fue completada y no puede repetirse.</div>
       </div>`;
