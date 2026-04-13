@@ -1775,12 +1775,19 @@ let quizState = {}; // { quizId: { qi: selectedOi } }
 
 function selectOption(qid, qi, oi, correct, feedbackEnc) {
   if (!quizState[qid]) quizState[qid] = {};
-  if (quizState[qid][qi] !== undefined) return; // already answered
 
+  // Si ya había una opción seleccionada para esta pregunta, desmarcarla
+  const prev = quizState[qid][qi];
+  if (prev !== undefined) {
+    const prevEl = document.getElementById(`opt-${qid}-${qi}-${prev}`);
+    if (prevEl) prevEl.classList.remove('selected');
+  }
+
+  // Marcar la nueva opción
   quizState[qid][qi] = oi;
   document.getElementById(`opt-${qid}-${qi}-${oi}`).classList.add('selected');
 
-  // check if all answered
+  // Habilitar "Corregir" cuando todas las preguntas tengan respuesta
   const q = findQuiz(qid);
   if (q && Object.keys(quizState[qid]).length === q.questions.length) {
     document.getElementById(`btn-check-${qid}`).disabled = false;
@@ -1917,9 +1924,19 @@ function renderNewsQuiz(n) {
 
 function selectNewsOption(qid, newsId, qi, oi, correct, feedbackEnc, total) {
   if (!quizState[qid]) quizState[qid] = {};
-  if (quizState[qid][qi] !== undefined) return;
+
+  // Si ya había una opción seleccionada para esta pregunta, desmarcarla
+  const prev = quizState[qid][qi];
+  if (prev !== undefined) {
+    const prevEl = document.getElementById(`opt-${qid}-${qi}-${prev}`);
+    if (prevEl) prevEl.classList.remove('selected');
+  }
+
+  // Marcar la nueva opción
   quizState[qid][qi] = oi;
   document.getElementById(`opt-${qid}-${qi}-${oi}`).classList.add('selected');
+
+  // Habilitar "Corregir" cuando todas las preguntas tengan respuesta
   if (Object.keys(quizState[qid]).length === total) {
     document.getElementById(`btn-check-${qid}`).disabled = false;
   }
