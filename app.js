@@ -1346,6 +1346,40 @@ function loadProgress() {
   if (saved) {
     try { progress = JSON.parse(saved); } catch(e) {}
   }
+  // También cargar desde Firebase y fusionar (el más completo gana)
+  loadProgressFromFirebase();
+}
+
+async function loadProgressFromFirebase() {
+  try {
+    const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
+    const url = FIREBASE_URL + '/students/' + key + '.json';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data && data.progress) {
+      const remote = data.progress;
+      // Fusionar: para cada campo, quedarse con el que tenga más datos
+      const merged = {
+        readSections: Object.assign({}, remote.readSections || {}, progress.readSections || {}),
+        quizScores:   Object.assign({}, remote.quizScores || {}, progress.quizScores || {}),
+        newsRead:     Object.assign({}, remote.newsRead || {}, progress.newsRead || {}),
+        newsQuiz:     Object.assign({}, remote.newsQuiz || {}, progress.newsQuiz || {}),
+      };
+      progress = merged;
+      // Guardar el resultado fusionado en localStorage
+      const localKey = `progress_${currentUser.apellido}_${currentUser.curso}`;
+      localStorage.setItem(localKey, JSON.stringify(Object.assign({ _nombre: currentUser.nombre }, progress)));
+      // Subir el fusionado a Firebase
+      syncToSheet();
+      // Actualizar la UI
+      updateGlobalProgress();
+      buildSidebar();
+      showSection(currentSection);
+      console.log('✅ Progreso sincronizado desde Firebase');
+    }
+  } catch(e) {
+    console.log('⚠️ No se pudo cargar desde Firebase, usando local:', e.message);
+  }
 }
 
 function saveProgress() {
@@ -1624,6 +1658,9 @@ ${quizSummary ? `<div class="card">
       ${u.sections.map(s => `<div onclick="showSection('${s.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${progress.readSections[s.id]?'var(--green-light)':'var(--cream)'};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid)">
         ${progress.readSections[s.id] ? '✅' : '⚪'} ${s.title}
       </div>`).join('')}
+      ${u.quizzes.map(q => { const r = progress.quizScores[q.id]; const pct = r ? Math.round(r.score/r.total*100) : null; const bg = r ? (pct>=70?'var(--green-light)':pct>=50?'#FFF8E8':'var(--red-light)') : '#F0E6F8'; const scoreLabel = r ? `<span style="font-size:12px;font-weight:700;color:${pct>=70?'var(--green)':pct>=50?'var(--gold-dark)':'var(--red)'}">${r.score}/${r.total}</span>` : '<span style="font-size:11px;color:var(--purple-light)">Pendiente</span>'; return `<div onclick="showSection('${q.id}')" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${bg};border-radius:8px;margin-bottom:4px;cursor:pointer;font-size:13.5px;color:var(--text-mid);border:1.5px solid var(--purple-pale)">
+        ✏️ <span style="flex:1">${q.title.replace('Ejercitación — ','')}</span>${scoreLabel}
+      </div>`; }).join('')}
     </div>
   `).join('')}
   <div style="margin-top:8px">
