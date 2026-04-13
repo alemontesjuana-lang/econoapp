@@ -302,7 +302,7 @@ function calcStats(prog) {
   // Porcentajes parciales
   const quizPct = qTotal > 0 ? Math.round(qScore/qTotal*100) : 0;
   const readPct = readTotal > 0 ? Math.round(readDone/readTotal*100) : 0;
-  const nota10  = qTotal > 0 ? Math.round(qScore/qTotal*100)/10 : 0;
+  const nota10  = qTotal > 0 ? Math.min(10, Math.round(Math.min(qScore, qTotal)/qTotal*100)/10) : 0;
 
   const lvls = [[95,'🏆 Maestro Máximo'],[80,'🏅 Experto'],[60,'🚀 Economista Jr.'],[40,'💡 Analista'],[20,'📖 Lector Activo'],[0,'🎮 Principiante']];
   const level = lvls.find(([p])=>globalPct>=p)[1];
