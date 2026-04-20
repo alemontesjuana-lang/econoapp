@@ -1354,11 +1354,12 @@ async function loadProgressFromFirebase() {
   try {
     const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
     const url = FIREBASE_URL + '/students/' + key + '.json';
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return;
     const data = await res.json();
     if (data && data.progress) {
       const remote = data.progress;
-      // Fusionar: para cada campo, quedarse con el que tenga más datos
+      // Fusionar: combinar todo lo que haya en ambos lados
       const merged = {
         readSections: Object.assign({}, remote.readSections || {}, progress.readSections || {}),
         quizScores:   Object.assign({}, remote.quizScores || {}, progress.quizScores || {}),
@@ -1366,12 +1367,14 @@ async function loadProgressFromFirebase() {
         newsQuiz:     Object.assign({}, remote.newsQuiz || {}, progress.newsQuiz || {}),
       };
       progress = merged;
-      // Guardar el resultado fusionado en localStorage
-      const localKey = `progress_${currentUser.apellido}_${currentUser.curso}`;
-      localStorage.setItem(localKey, JSON.stringify(Object.assign({ _nombre: currentUser.nombre }, progress)));
+      // Guardar el fusionado en localStorage
+      try {
+        const localKey = `progress_${currentUser.apellido}_${currentUser.curso}`;
+        localStorage.setItem(localKey, JSON.stringify(Object.assign({ _nombre: currentUser.nombre }, progress)));
+      } catch(e) {}
       // Subir el fusionado a Firebase
       syncToSheet();
-      // Actualizar la UI
+      // Actualizar UI
       updateGlobalProgress();
       buildSidebar();
       showSection(currentSection);
@@ -1383,16 +1386,18 @@ async function loadProgressFromFirebase() {
 }
 
 function saveProgress() {
-  const key = `progress_${currentUser.apellido}_${currentUser.curso}`;
-  const data = Object.assign({ _nombre: currentUser.nombre }, progress);
-  localStorage.setItem(key, JSON.stringify(data));
-  // También llamar al Apps Script para persistir en Drive
+  // Guardar en localStorage como respaldo
+  try {
+    const key = `progress_${currentUser.apellido}_${currentUser.curso}`;
+    const data = Object.assign({ _nombre: currentUser.nombre }, progress);
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch(e) {}
+  // Sincronizar con Firebase inmediatamente
   syncToSheet();
 }
 
 async function syncToSheet() {
   try {
-    console.log('📡 Sincronizando con Firebase...', currentUser.apellido, currentUser.curso);
     const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
     const url = FIREBASE_URL + '/students/' + key + '.json';
     const payload = {
@@ -1402,17 +1407,24 @@ async function syncToSheet() {
       timestamp: new Date().toISOString(),
       progress: progress
     };
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (data && data.apellido) {
-      console.log('✅ Sync OK — Firebase');
-    } else {
-      console.log('⚠️ Sync respuesta:', data);
+    // Reintentar hasta 3 veces si falla (importante para iPhone con conexión inestable)
+    for (let intento = 1; intento <= 3; intento++) {
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          console.log('✅ Sync OK — Firebase (intento ' + intento + ')');
+          return;
+        }
+      } catch(e) {
+        console.log('⚠️ Intento ' + intento + ' fallido:', e.message);
+        if (intento < 3) await new Promise(r => setTimeout(r, 1500));
+      }
     }
+    console.log('❌ No se pudo sincronizar después de 3 intentos');
   } catch(e) {
     console.log('❌ Sync error:', e);
   }
