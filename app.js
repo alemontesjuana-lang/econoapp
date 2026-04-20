@@ -1396,7 +1396,49 @@ function saveProgress() {
   syncToSheet();
 }
 
-async function syncToSheet() {
+async function syncManual() {
+  const btn = document.getElementById('btn-sync');
+  if (!btn) return;
+  btn.textContent = '⏳ Sincronizando...';
+  btn.disabled = true;
+  try {
+    const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
+    const url = FIREBASE_URL + '/students/' + key + '.json';
+    const payload = {
+      apellido: currentUser.apellido,
+      nombre: currentUser.nombre,
+      curso: currentUser.curso,
+      timestamp: new Date().toISOString(),
+      progress: progress
+    };
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      btn.textContent = '✅ ¡Sincronizado!';
+      btn.style.background = 'var(--green)';
+      setTimeout(() => {
+        btn.textContent = '🔄 Sincronizar ahora';
+        btn.style.background = 'var(--purple)';
+        btn.disabled = false;
+      }, 3000);
+    } else {
+      throw new Error('Error ' + res.status);
+    }
+  } catch(e) {
+    btn.textContent = '❌ Sin conexión — intentá de nuevo';
+    btn.style.background = 'var(--red)';
+    setTimeout(() => {
+      btn.textContent = '🔄 Sincronizar ahora';
+      btn.style.background = 'var(--purple)';
+      btn.disabled = false;
+    }, 3000);
+  }
+}
+
+
   try {
     const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
     const url = FIREBASE_URL + '/students/' + key + '.json';
@@ -1654,6 +1696,11 @@ function renderHome() {
   </div>` : `<div style="background:var(--green-light);border-radius:10px;padding:14px 18px;font-size:14px;color:var(--green);font-weight:600">
     🏆 ¡Completaste el programa! Ya podés ver tu certificado.
   </div>`}
+
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--purple-pale);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <span style="font-size:12px;color:var(--text-light)">¿Tu progreso no aparece actualizado en el panel docente?</span>
+    <button id="btn-sync" onclick="syncManual()" style="background:var(--purple);color:white;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:6px;white-space:nowrap;">🔄 Sincronizar ahora</button>
+  </div>
 </div>
 
 ${quizSummary ? `<div class="card">
