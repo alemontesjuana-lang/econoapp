@@ -1439,6 +1439,7 @@ async function syncManual() {
 }
 
 
+async function syncToSheet() {
   try {
     const key = currentUser.apellido.replace(/[^a-zA-Z0-9]/g, '_') + '_' + currentUser.curso.replace(/[^a-zA-Z0-9]/g, '_');
     const url = FIREBASE_URL + '/students/' + key + '.json';
